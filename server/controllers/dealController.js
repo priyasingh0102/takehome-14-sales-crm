@@ -1,6 +1,7 @@
 import Deal from "../models/Deal.js";
 import Company from "../models/Company.js";
 import DealHistory from "../models/DealHistory.js";
+import User from "../models/User.js";
 
 export const createDeal = async (req, res) => {
   try {
@@ -59,6 +60,13 @@ export const getDeals = async (req, res) => {
 
     const filter = {};
 
+    if (req.user.role !== "sales_manager") {
+      filter.$or = [
+        { owner: req.user._id },
+        { collaborators: req.user._id },
+      ];
+    }
+
     if (search) {
       filter.title = {
         $regex: search,
@@ -70,9 +78,9 @@ export const getDeals = async (req, res) => {
       filter.stage = stage;
     }
 
-    if (owner) {
-      filter.owner = owner;
-    }
+   if (owner && req.user.role === "sales_manager") {
+    filter.owner = owner;
+  }
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -159,17 +167,7 @@ export const updateDealStage = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can change the stage
-    if (
-      req.user.role !== "sales_manager" &&
-      deal.owner.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        message: "You do not have permission to change this deal",
-      });
-    }
-
-    const validStages = [
+    const stages = [
       "New",
       "Qualified",
       "Proposal",
@@ -178,48 +176,57 @@ export const updateDealStage = async (req, res) => {
       "Lost",
     ];
 
-    if (!validStages.includes(stage)) {
+    const currentIndex = stages.indexOf(deal.stage);
+    const newIndex = stages.indexOf(stage);
+
+    if (newIndex === -1) {
       return res.status(400).json({
         message: "Invalid deal stage",
       });
     }
 
-    const currentStage = deal.stage;
+    // Closed deals cannot be changed normally
+    if (deal.stage === "Won" || deal.stage === "Lost") {
+      return res.status(400).json({
+        message: "Closed deals cannot be changed. A sales manager must reopen the deal first.",
+      });
+    }
 
-    if (currentStage === stage) {
+    // No change
+    if (deal.stage === stage) {
       return res.status(400).json({
         message: "Deal is already in this stage",
       });
     }
 
-    const stageOrder = {
-      New: 1,
-      Qualified: 2,
-      Proposal: 3,
-      Negotiation: 4,
-      Won: 5,
-      Lost: 5,
-    };
-
-    const isBackwardTransition =
-      stageOrder[stage] < stageOrder[currentStage];
-
-    if (isBackwardTransition && !reason) {
-      return res.status(400).json({
-        message: "Reason is required for a backward stage transition",
-      });
+    // Forward movement: exactly one stage
+    if (newIndex > currentIndex) {
+      if (newIndex !== currentIndex + 1) {
+        return res.status(400).json({
+          message: "Deal can only move forward by one stage at a time",
+        });
+      }
     }
 
+    // Backward movement: exactly one stage + reason
+    if (newIndex < currentIndex) {
+      if (newIndex !== currentIndex - 1) {
+        return res.status(400).json({
+          message: "Deal can only move backward by one stage at a time",
+        });
+      }
+
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({
+          message: "A reason is required when moving a deal backward",
+        });
+      }
+    }
+
+    // Save previous stage before updating
+    deal.previousStage = deal.stage;
     deal.stage = stage;
 
-    await DealHistory.create({
-        deal: deal._id,
-        fromStage: currentStage,
-        toStage: stage,
-        changedBy: req.user._id,
-        reason: reason || null,
-    });
-    
     await deal.save();
 
     res.status(200).json({
@@ -233,6 +240,318 @@ export const updateDealStage = async (req, res) => {
     });
   }
 };
+
+export const reopenDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deal = await Deal.findById(id);
+
+    if (!deal) {
+      return res.status(404).json({
+        message: "Deal not found",
+      });
+    }
+
+    // Only sales managers can reopen closed deals
+    if (req.user.role !== "sales_manager") {
+      return res.status(403).json({
+        message: "Only a sales manager can reopen a closed deal",
+      });
+    }
+
+    // Deal must be closed before it can be reopened
+    if (deal.stage !== "Won" && deal.stage !== "Lost") {
+      return res.status(400).json({
+        message: "Only Won or Lost deals can be reopened",
+      });
+    }
+
+    if (!deal.previousStage) {
+      return res.status(400).json({
+        message: "Previous stage is not available for this deal",
+      });
+    }
+
+    const oldStage = deal.stage;
+
+    deal.stage = deal.previousStage;
+    deal.previousStage = null;
+
+    await deal.save();
+
+    res.status(200).json({
+      message: "Deal reopened successfully",
+      deal,
+      reopenedFrom: oldStage,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to reopen deal",
+      error: error.message,
+    });
+  }
+};
+
+export const reassignDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newOwnerId } = req.body;
+
+    const deal = await Deal.findById(id);
+
+    if (!deal) {
+      return res.status(404).json({
+        message: "Deal not found",
+      });
+    }
+
+    // Only sales managers can reassign deals
+    if (req.user.role !== "sales_manager") {
+      return res.status(403).json({
+        message: "Only a sales manager can reassign a deal",
+      });
+    }
+
+    if (!newOwnerId) {
+      return res.status(400).json({
+        message: "New owner ID is required",
+      });
+    }
+
+    const newOwner = await User.findById(newOwnerId);
+
+    if (!newOwner) {
+      return res.status(404).json({
+        message: "New owner not found",
+      });
+    }
+
+    if (deal.owner.toString() === newOwnerId.toString()) {
+      return res.status(400).json({
+        message: "Deal is already assigned to this user",
+      });
+    }
+
+    const previousOwner = deal.owner;
+
+    deal.owner = newOwnerId;
+
+    await deal.save();
+
+    await DealHistory.create({
+      deal: deal._id,
+      type: "owner_change",
+      oldOwner: previousOwner,
+      newOwner: newOwnerId,
+      performedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      message: "Deal reassigned successfully",
+      deal,
+      previousOwner,
+      newOwner: newOwnerId,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to reassign deal",
+      error: error.message,
+    });
+  }
+};
+
+export const bulkReassignDeals = async (req, res) => {
+  try {
+    if (req.user.role !== "sales_manager") {
+      return res.status(403).json({
+        message: "Only a sales manager can bulk reassign deals",
+      });
+    }
+
+    const { dealIds, newOwnerId } = req.body;
+
+    if (!Array.isArray(dealIds) || dealIds.length === 0) {
+      return res.status(400).json({
+        message: "dealIds must be a non-empty array",
+      });
+    }
+
+    if (!newOwnerId) {
+      return res.status(400).json({
+        message: "New owner ID is required",
+      });
+    }
+
+    const newOwner = await User.findById(newOwnerId);
+
+    if (!newOwner) {
+      return res.status(404).json({
+        message: "New owner not found",
+      });
+    }
+
+    const results = [];
+
+    for (const dealId of dealIds) {
+      try {
+        const deal = await Deal.findById(dealId);
+
+        if (!deal) {
+          results.push({
+            dealId,
+            success: false,
+            message: "Deal not found",
+          });
+          continue;
+        }
+
+        if (deal.owner.toString() === newOwnerId.toString()) {
+          results.push({
+            dealId,
+            success: false,
+            message: "Deal is already assigned to this user",
+          });
+          continue;
+        }
+
+        const previousOwner = deal.owner;
+
+        deal.owner = newOwnerId;
+        await deal.save();
+
+        await DealHistory.create({
+          deal: deal._id,
+          type: "owner_change",
+          oldOwner: previousOwner,
+          newOwner: newOwnerId,
+          performedBy: req.user._id,
+        });
+
+        results.push({
+          dealId,
+          success: true,
+          message: "Deal reassigned successfully",
+        });
+      } catch (error) {
+        results.push({
+          dealId,
+          success: false,
+          message: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: "Bulk reassignment completed",
+      results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to process bulk reassignment",
+      error: error.message,
+    });
+  }
+};
+
+export const bulkAdvanceDeals = async (req, res) => {
+  try {
+    if (req.user.role !== "sales_manager") {
+      return res.status(403).json({
+        message: "Only a sales manager can bulk advance deals",
+      });
+    }
+
+    const { dealIds } = req.body;
+
+    if (!Array.isArray(dealIds) || dealIds.length === 0) {
+      return res.status(400).json({
+        message: "dealIds must be a non-empty array",
+      });
+    }
+
+    const stages = [
+      "New",
+      "Qualified",
+      "Proposal",
+      "Negotiation",
+      "Won",
+      "Lost",
+    ];
+
+    const results = [];
+
+    for (const dealId of dealIds) {
+      try {
+        const deal = await Deal.findById(dealId);
+
+        if (!deal) {
+          results.push({
+            dealId,
+            success: false,
+            message: "Deal not found",
+          });
+          continue;
+        }
+
+        // Closed deals cannot be advanced
+        if (deal.stage === "Won" || deal.stage === "Lost") {
+          results.push({
+            dealId,
+            success: false,
+            message: "Closed deals cannot be advanced",
+          });
+          continue;
+        }
+
+        const currentIndex = stages.indexOf(deal.stage);
+
+        // Prevent advancing beyond Negotiation
+        if (currentIndex >= stages.indexOf("Negotiation")) {
+          results.push({
+            dealId,
+            success: false,
+            message: "Deal cannot be advanced further",
+          });
+          continue;
+        }
+
+        const oldStage = deal.stage;
+        const newStage = stages[currentIndex + 1];
+
+        deal.previousStage = oldStage;
+        deal.stage = newStage;
+
+        await deal.save();
+
+        results.push({
+          dealId,
+          success: true,
+          oldStage,
+          newStage,
+          message: "Deal advanced successfully",
+        });
+      } catch (error) {
+        results.push({
+          dealId,
+          success: false,
+          message: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: "Bulk advancement completed",
+      results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to process bulk advancement",
+      error: error.message,
+    });
+  }
+};
+
 
 export const getDealHistory = async (req, res) => {
   try {
@@ -248,6 +567,41 @@ export const getDealHistory = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch deal history",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteDeal = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deal = await Deal.findById(id);
+
+    if (!deal) {
+      return res.status(404).json({
+        message: "Deal not found",
+      });
+    }
+
+    // Only the owner or a sales manager can delete the deal
+    if (
+      req.user.role !== "sales_manager" &&
+      deal.owner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        message: "You do not have permission to delete this deal",
+      });
+    }
+
+    await Deal.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: "Deal deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to delete deal",
       error: error.message,
     });
   }
@@ -303,6 +657,7 @@ export const addCollaborator = async (req, res) => {
     });
   }
 };
+
 
 export const removeCollaborator = async (req, res) => {
   try {
@@ -373,6 +728,67 @@ export const getCollaborators = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch collaborators",
+      error: error.message,
+    });
+  }
+};
+
+export const exportDealsCsv = async (req, res) => {
+  try {
+    const stageWeights = {
+      New: 0.10,
+      Qualified: 0.25,
+      Proposal: 0.50,
+      Negotiation: 0.75,
+    };
+
+    const deals = await Deal.find({
+      stage: {
+        $nin: ["Won", "Lost"],
+      },
+    })
+      .populate("company", "name")
+      .sort({ expectedCloseDate: 1 });
+
+    const rows = deals.map((deal) => {
+      const value = parseFloat(deal.value.toString());
+      const weight = stageWeights[deal.stage] || 0;
+      const weightedValue = value * weight;
+
+      return {
+        company: deal.company?.name || "",
+        title: deal.title,
+        stage: deal.stage,
+        value,
+        weightedValue,
+      };
+    });
+
+    const csvHeader =
+      "Company,Deal Title,Stage,Value,Stage-Weighted Value\n";
+
+    const csvRows = rows
+      .map(
+        (row) =>
+          `"${row.company.replace(/"/g, '""')}","${row.title.replace(
+            /"/g,
+            '""'
+          )}","${row.stage}",${row.value},${row.weightedValue.toFixed(2)}`
+      )
+      .join("\n");
+
+    const csv = csvHeader + csvRows;
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=deals-pipeline.csv"
+    );
+
+    res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to export deals",
       error: error.message,
     });
   }

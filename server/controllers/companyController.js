@@ -37,6 +37,10 @@ export const getCompanies = async (req, res) => {
       archived: false,
     };
 
+     if (req.user.role !== "sales_manager") {
+      filter.owner = req.user._id;
+    }
+
     if (search) {
       filter.name = {
         $regex: search,

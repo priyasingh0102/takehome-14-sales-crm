@@ -28,3 +28,15 @@ Answer each of these, in your own words.
 - Added deal alerts with APIs for generating, viewing, and dismissing alerts.
 - The deal-related functionality took most of the session, with some additional time spent fixing and verifying API behaviour.
 - Testing of the completed functionality was kept for the end of the implementation work rather than interrupting the development flow.
+
+## Day 3
+
+- Continued with the deal management and authorization requirements.
+- Added rules for deal stage transitions, including restricting forward and backward movement to one stage at a time and requiring a reason when moving a deal backward.
+- Implemented reopening of closed deals for sales managers and added deal owner reassignment with the corresponding history information.
+- Added deal deletion with permission checks for the deal owner and sales managers.
+- Implemented visibility rules so sales managers can view all relevant companies and deals, while sales representatives are restricted to the companies and deals they are allowed to see.
+- Added bulk deal actions for sales managers, including bulk reassignment and bulk advancement, with individual success or rejection results for each selected deal.
+- Implemented pipeline CSV export containing open deals, their company, stage, value, and stage-weighted value.
+- Day 3 took longer than initially expected because several features required additional permission checks and interaction with the existing deal lifecycle.
+- Did not cut any major functionality; testing and final verification were kept for the end of the implementation work.
