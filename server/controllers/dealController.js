@@ -78,9 +78,9 @@ export const getDeals = async (req, res) => {
       filter.stage = stage;
     }
 
-   if (owner && req.user.role === "sales_manager") {
-    filter.owner = owner;
-  }
+    if (owner && req.user.role === "sales_manager") {
+      filter.owner = owner;
+    }
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -122,7 +122,6 @@ export const updateDeal = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can update the deal
     if (
       req.user.role !== "sales_manager" &&
       deal.owner.toString() !== req.user._id.toString()
@@ -136,6 +135,7 @@ export const updateDeal = async (req, res) => {
 
     if (title !== undefined) deal.title = title;
     if (value !== undefined) deal.value = value;
+
     if (expectedCloseDate !== undefined) {
       deal.expectedCloseDate = expectedCloseDate;
     }
@@ -185,21 +185,19 @@ export const updateDealStage = async (req, res) => {
       });
     }
 
-    // Closed deals cannot be changed normally
     if (deal.stage === "Won" || deal.stage === "Lost") {
       return res.status(400).json({
-        message: "Closed deals cannot be changed. A sales manager must reopen the deal first.",
+        message:
+          "Closed deals cannot be changed. A sales manager must reopen the deal first.",
       });
     }
 
-    // No change
     if (deal.stage === stage) {
       return res.status(400).json({
         message: "Deal is already in this stage",
       });
     }
 
-    // Forward movement: exactly one stage
     if (newIndex > currentIndex) {
       if (newIndex !== currentIndex + 1) {
         return res.status(400).json({
@@ -208,7 +206,6 @@ export const updateDealStage = async (req, res) => {
       }
     }
 
-    // Backward movement: exactly one stage + reason
     if (newIndex < currentIndex) {
       if (newIndex !== currentIndex - 1) {
         return res.status(400).json({
@@ -223,11 +220,21 @@ export const updateDealStage = async (req, res) => {
       }
     }
 
-    // Save previous stage before updating
-    deal.previousStage = deal.stage;
+    const oldStage = deal.stage;
+
+    deal.previousStage = oldStage;
     deal.stage = stage;
 
     await deal.save();
+
+    await DealHistory.create({
+      deal: deal._id,
+      type: "stage_change",
+      oldStage,
+      newStage: stage,
+      reason: reason || null,
+      performedBy: req.user._id,
+    });
 
     res.status(200).json({
       message: "Deal stage updated successfully",
@@ -253,14 +260,12 @@ export const reopenDeal = async (req, res) => {
       });
     }
 
-    // Only sales managers can reopen closed deals
     if (req.user.role !== "sales_manager") {
       return res.status(403).json({
         message: "Only a sales manager can reopen a closed deal",
       });
     }
 
-    // Deal must be closed before it can be reopened
     if (deal.stage !== "Won" && deal.stage !== "Lost") {
       return res.status(400).json({
         message: "Only Won or Lost deals can be reopened",
@@ -274,11 +279,21 @@ export const reopenDeal = async (req, res) => {
     }
 
     const oldStage = deal.stage;
+    const newStage = deal.previousStage;
 
-    deal.stage = deal.previousStage;
+    deal.stage = newStage;
     deal.previousStage = null;
 
     await deal.save();
+
+    await DealHistory.create({
+      deal: deal._id,
+      type: "stage_change",
+      oldStage,
+      newStage,
+      reason: "Deal reopened by sales manager",
+      performedBy: req.user._id,
+    });
 
     res.status(200).json({
       message: "Deal reopened successfully",
@@ -306,7 +321,6 @@ export const reassignDeal = async (req, res) => {
       });
     }
 
-    // Only sales managers can reassign deals
     if (req.user.role !== "sales_manager") {
       return res.status(403).json({
         message: "Only a sales manager can reassign a deal",
@@ -418,6 +432,7 @@ export const bulkReassignDeals = async (req, res) => {
         const previousOwner = deal.owner;
 
         deal.owner = newOwnerId;
+
         await deal.save();
 
         await DealHistory.create({
@@ -494,7 +509,6 @@ export const bulkAdvanceDeals = async (req, res) => {
           continue;
         }
 
-        // Closed deals cannot be advanced
         if (deal.stage === "Won" || deal.stage === "Lost") {
           results.push({
             dealId,
@@ -506,7 +520,6 @@ export const bulkAdvanceDeals = async (req, res) => {
 
         const currentIndex = stages.indexOf(deal.stage);
 
-        // Prevent advancing beyond Negotiation
         if (currentIndex >= stages.indexOf("Negotiation")) {
           results.push({
             dealId,
@@ -523,6 +536,15 @@ export const bulkAdvanceDeals = async (req, res) => {
         deal.stage = newStage;
 
         await deal.save();
+
+        await DealHistory.create({
+          deal: deal._id,
+          type: "stage_change",
+          oldStage,
+          newStage,
+          reason: "Bulk stage advancement by sales manager",
+          performedBy: req.user._id,
+        });
 
         results.push({
           dealId,
@@ -552,13 +574,12 @@ export const bulkAdvanceDeals = async (req, res) => {
   }
 };
 
-
 export const getDealHistory = async (req, res) => {
   try {
     const { id } = req.params;
 
     const history = await DealHistory.find({ deal: id })
-      .populate("changedBy", "name email role")
+      .populate("performedBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -584,7 +605,6 @@ export const deleteDeal = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can delete the deal
     if (
       req.user.role !== "sales_manager" &&
       deal.owner.toString() !== req.user._id.toString()
@@ -620,7 +640,6 @@ export const addCollaborator = async (req, res) => {
       });
     }
 
-    // Only owner or sales manager can add collaborators
     if (
       req.user.role !== "sales_manager" &&
       deal.owner.toString() !== req.user._id.toString()
@@ -658,7 +677,6 @@ export const addCollaborator = async (req, res) => {
   }
 };
 
-
 export const removeCollaborator = async (req, res) => {
   try {
     const { id, userId } = req.params;
@@ -671,7 +689,6 @@ export const removeCollaborator = async (req, res) => {
       });
     }
 
-    // Only owner or sales manager can remove collaborators
     if (
       req.user.role !== "sales_manager" &&
       deal.owner.toString() !== req.user._id.toString()
@@ -713,8 +730,10 @@ export const getCollaborators = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deal = await Deal.findById(id)
-      .populate("collaborators", "name email role");
+    const deal = await Deal.findById(id).populate(
+      "collaborators",
+      "name email role"
+    );
 
     if (!deal) {
       return res.status(404).json({

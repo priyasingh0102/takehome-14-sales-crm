@@ -31,13 +31,13 @@ export const createCompany = async (req, res) => {
 
 export const getCompanies = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, archived } = req.query;
 
     const filter = {
-      archived: false,
+      archived: archived === "true",
     };
 
-     if (req.user.role !== "sales_manager") {
+    if (req.user.role !== "sales_manager") {
       filter.owner = req.user._id;
     }
 
@@ -76,7 +76,6 @@ export const updateCompany = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can edit the company
     if (
       req.user.role !== "sales_manager" &&
       company.owner.toString() !== req.user._id.toString()
@@ -116,7 +115,6 @@ export const archiveCompany = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can archive the company
     if (
       req.user.role !== "sales_manager" &&
       company.owner.toString() !== req.user._id.toString()
@@ -154,7 +152,6 @@ export const restoreCompany = async (req, res) => {
       });
     }
 
-    // Only the owner or a sales manager can restore the company
     if (
       req.user.role !== "sales_manager" &&
       company.owner.toString() !== req.user._id.toString()
