@@ -592,6 +592,75 @@ Performed By: ${performedBy}`;
     }
   };
 
+
+  // Bulk Advance Deals
+const handleBulkAdvance = async () => {
+  if (selectedDeals.length === 0) {
+    alert("Please select at least one deal");
+    return;
+  }
+
+  try {
+    setError("");
+
+    const response = await fetch(
+      "http://localhost:5000/api/deals/bulk/advance",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          dealIds: selectedDeals,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Bulk advancement failed");
+      return;
+    }
+
+    const resultsText = (data.results || [])
+      .map(
+        (result) =>
+          `${result.dealId}: ${
+            result.success ? "Success" : "Rejected"
+          } - ${result.message}`
+      )
+      .join("\n");
+
+    alert(
+      `Bulk advancement completed.\n\n${resultsText}`
+    );
+
+    setSelectedDeals([]);
+
+    const refreshResponse = await fetch(
+      `http://localhost:5000/api/deals?search=${encodeURIComponent(
+        search
+      )}&stage=${stage}&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
+
+    const refreshData = await refreshResponse.json();
+
+    if (refreshResponse.ok) {
+      setDeals(refreshData.deals || []);
+    }
+  } catch (error) {
+    setError("Unable to connect to server");
+  }
+};
+
+
   if (error) {
     return <p>{error}</p>;
   }
@@ -619,6 +688,13 @@ Performed By: ${performedBy}`;
           >
             Bulk Reassign
           </button>
+          <button
+            type="button"
+            onClick={handleBulkAdvance}
+            disabled={selectedDeals.length === 0}
+          >
+  Bulk Advance
+</button>
 
           <span>
             {" "}

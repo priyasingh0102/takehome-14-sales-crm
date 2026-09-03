@@ -40,3 +40,32 @@ Answer each of these, in your own words.
 - Implemented pipeline CSV export containing open deals, their company, stage, value, and stage-weighted value.
 - Day 3 took longer than initially expected because several features required additional permission checks and interaction with the existing deal lifecycle.
 - Did not cut any major functionality; testing and final verification were kept for the end of the implementation work.
+
+### Day 4 — Frontend Development
+
+- Set up React frontend with Vite.
+- Implemented login and JWT-based authentication handling.
+- Added protected routes for authenticated users.
+- Added navigation and logout functionality.
+- Connected frontend with backend APIs.
+- Implemented Dashboard UI with CRM summary data.
+- Implemented Companies UI with:
+  - Company creation
+  - Company search
+  - Company editing
+  - Archive and restore
+  - Active/archived views
+- Implemented Deals UI with:
+  - Deal creation
+  - Deal listing
+  - Search and stage filtering
+  - Deal editing and deletion
+  - Stage transitions
+  - Deal history
+  - Collaborator management
+  - Deal alerts
+  - CSV export
+  - Deal reopening
+  - Bulk reassignment
+  - Bulk stage advancement
+- Added role-based frontend controls for manager-specific actions.

@@ -42,3 +42,27 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Why:** The Company schema contains an owner relationship but does not contain a collaborators field, so visibility must follow the actual data model.
 
 - **Later reversed:** An initial implementation attempted to include collaborators when filtering companies. After checking the Company schema, this was changed to owner-only visibility.
+
+## Decision 7
+
+- **Chose:** Store the JWT token and logged-in user information in localStorage after successful login.
+- **Rejected:** Keeping authentication state only in React component state.
+- **Why:** localStorage allows the authentication state to persist when the page is refreshed. Protected routes can use the stored token to determine whether the user is logged in.
+
+## Decision 8
+
+- **Chose:** Display manager-specific actions conditionally based on the authenticated user's role.
+- **Rejected:** Displaying manager actions to every user and relying only on the frontend to restrict access.
+- **Why:** The frontend provides a better user experience by hiding unavailable actions, while the backend remains responsible for enforcing actual permissions.
+
+## Decision 9
+
+- **Chose:** Separate active and archived companies into different frontend views.
+- **Rejected:** Permanently deleting archived companies.
+- **Why:** The assignment requires archiving without destroying associated data. Separate views make it clear which companies are active and which are archived, while allowing archived companies to be restored.
+
+## Decision 10
+
+- **Chose:** Implement bulk deal operations through dedicated backend APIs and expose them through manager-only frontend controls.
+- **Rejected:** Performing bulk operations individually from the frontend without dedicated backend endpoints.
+- **Why:** Dedicated APIs allow the server to validate permissions and business rules for every selected deal. Bulk advancement also moves each selected deal forward by exactly one lifecycle stage.
