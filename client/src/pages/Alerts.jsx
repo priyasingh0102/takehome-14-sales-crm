@@ -1,4 +1,17 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Chip,
+  Alert as MuiAlert,
+  Divider,
+} from "@mui/material";
+
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import DismissIcon from "@mui/icons-material/CheckCircle";
 
 function Alerts() {
   const [alerts, setAlerts] = useState([]);
@@ -61,42 +74,152 @@ function Alerts() {
     }
   };
 
-  if (error) {
-    return <p>{error}</p>;
-  }
-
   return (
-    <div>
-      <h1>Alerts</h1>
+    <Box>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight="bold">
+          Alerts
+        </Typography>
 
-      {alerts.length === 0 ? (
-        <p>No active alerts.</p>
-      ) : (
-        alerts.map((alert) => (
-          <div key={alert._id}>
-            <h3>{alert.deal?.title}</h3>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ mt: 0.5 }}
+        >
+          Stay updated on deals that need your attention
+        </Typography>
+      </Box>
 
-            <p>
-              Expected Close Date:{" "}
-              {alert.deal?.expectedCloseDate
-                ? new Date(
-                    alert.deal.expectedCloseDate
-                  ).toLocaleDateString()
-                : "N/A"}
-            </p>
-
-            <p>Stage: {alert.deal?.stage}</p>
-
-            <button
-              type="button"
-              onClick={() => handleDismiss(alert._id)}
-            >
-              Dismiss
-            </button>
-          </div>
-        ))
+      {/* Error */}
+      {error && (
+        <MuiAlert
+          severity="error"
+          sx={{ mb: 3 }}
+          onClose={() => setError("")}
+        >
+          {error}
+        </MuiAlert>
       )}
-    </div>
+
+      {/* Alerts */}
+      {alerts.length === 0 ? (
+        <Paper
+          elevation={2}
+          sx={{
+            p: 6,
+            textAlign: "center",
+            borderRadius: 3,
+          }}
+        >
+          <NotificationsActiveIcon
+            sx={{ fontSize: 50, mb: 2 }}
+          />
+
+          <Typography variant="h6" fontWeight="bold">
+            No active alerts
+          </Typography>
+
+          <Typography
+            color="text.secondary"
+            sx={{ mt: 1 }}
+          >
+            You don't have any deal alerts right now.
+          </Typography>
+        </Paper>
+      ) : (
+        <Box>
+          {alerts.map((alert) => (
+            <Paper
+              key={alert._id}
+              elevation={2}
+              sx={{
+                p: 3,
+                mb: 2,
+                borderRadius: 3,
+                borderLeft: "5px solid",
+                borderColor: "warning.main",
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 2,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <NotificationsActiveIcon color="warning" />
+
+                    <Typography
+                      variant="h6"
+                      fontWeight="bold"
+                    >
+                      {alert.deal?.title}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: 3,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.7,
+                      }}
+                    >
+                      <CalendarMonthIcon fontSize="small" />
+
+                      <Typography variant="body2">
+                        <strong>Expected Close:</strong>{" "}
+                        {alert.deal?.expectedCloseDate
+                          ? new Date(
+                              alert.deal.expectedCloseDate
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </Typography>
+                    </Box>
+
+                    <Chip
+                      label={
+                        alert.deal?.stage || "Unknown"
+                      }
+                      size="small"
+                    />
+                  </Box>
+                </Box>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<DismissIcon />}
+                  onClick={() =>
+                    handleDismiss(alert._id)
+                  }
+                >
+                  Dismiss
+                </Button>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 }
 

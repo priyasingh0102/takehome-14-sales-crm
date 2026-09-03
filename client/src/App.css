@@ -1,28 +1,15 @@
-.login-container {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+* {
+  box-sizing: border-box;
 }
 
-.login-form {
-  width: 350px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
 }
 
-.login-form input {
-  padding: 12px;
-  font-size: 16px;
-}
-
-.login-form button {
-  padding: 12px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.error {
-  color: red;
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }

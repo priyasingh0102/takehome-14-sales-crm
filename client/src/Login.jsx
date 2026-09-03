@@ -1,4 +1,17 @@
 import { useState } from "react";
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  InputAdornment,
+} from "@mui/material";
+
+import EmailIcon from "@mui/icons-material/Email";
+import LockIcon from "@mui/icons-material/Lock";
+import LoginIcon from "@mui/icons-material/Login";
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
@@ -39,32 +52,109 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="login-container">
-      <form onSubmit={handleSubmit} className="login-form">
-        <h1>Sales CRM</h1>
-        <h2>Login</h2>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#f5f6fa",
+        p: 2,
+      }}
+    >
+      <Paper
+        elevation={4}
+        sx={{
+          width: "100%",
+          maxWidth: 420,
+          p: 4,
+          borderRadius: 3,
+        }}
+      >
+        <Box
+          sx={{
+            textAlign: "center",
+            mb: 4,
+          }}
+        >
+          <Typography
+            variant="h4"
+            fontWeight="bold"
+          >
+            Sales CRM
+          </Typography>
 
-        {error && <p className="error">{error}</p>}
+          <Typography
+            color="text.secondary"
+            sx={{ mt: 1 }}
+          >
+            Sign in to manage your sales pipeline
+          </Typography>
+        </Box>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        {error && (
+          <Alert
+            severity="error"
+            sx={{ mb: 3 }}
+          >
+            {error}
+          </Alert>
+        )}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+        >
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
+            required
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <EmailIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
 
-        <button type="submit">Login</button>
-      </form>
-    </div>
+          <TextField
+            fullWidth
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            required
+            sx={{ mb: 3 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Button
+            fullWidth
+            type="submit"
+            variant="contained"
+            size="large"
+            startIcon={<LoginIcon />}
+          >
+            Login
+          </Button>
+        </Box>
+      </Paper>
+    </Box>
   );
 }
 
