@@ -1,4 +1,5 @@
 import Deal from "../models/Deal.js";
+import DealHistory from "../models/DealHistory.js";
 
 const stageWeights = {
   New: 0.10,
@@ -58,23 +59,37 @@ export const getDashboard = async (req, res) => {
     );
 
     // Won this month
-    const wonThisMonth = await Deal.countDocuments({
-      ...visibilityFilter,
-      stage: "Won",
-      updatedAt: {
+    const wonHistory = await DealHistory.find({
+      type: "stage_change",
+      newStage: "Won",
+      createdAt: {
         $gte: startOfMonth,
         $lt: startOfNextMonth,
       },
+    }).select("deal");
+
+    const wonDealIds = wonHistory.map((entry) => entry.deal);
+
+    const wonThisMonth = await Deal.countDocuments({
+      _id: { $in: wonDealIds },
+      ...visibilityFilter,
     });
 
     // Lost this month
-    const lostThisMonth = await Deal.countDocuments({
-      ...visibilityFilter,
-      stage: "Lost",
-      updatedAt: {
+    const lostHistory = await DealHistory.find({
+      type: "stage_change",
+      newStage: "Lost",
+      createdAt: {
         $gte: startOfMonth,
         $lt: startOfNextMonth,
       },
+    }).select("deal");
+
+    const lostDealIds = lostHistory.map((entry) => entry.deal);
+
+    const lostThisMonth = await Deal.countDocuments({
+      _id: { $in: lostDealIds },
+      ...visibilityFilter,
     });
 
     // Open deals by stage
@@ -125,13 +140,22 @@ export const getDashboard = async (req, res) => {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 7);
 
-      const count = await Deal.countDocuments({
-        ...visibilityFilter,
-        stage: "Won",
-        updatedAt: {
+      const weeklyWonHistory = await DealHistory.find({
+        type: "stage_change",
+        newStage: "Won",
+        createdAt: {
           $gte: weekStart,
           $lt: weekEnd,
         },
+      }).select("deal");
+
+      const weeklyWonDealIds = weeklyWonHistory.map(
+        (entry) => entry.deal
+      );
+
+      const count = await Deal.countDocuments({
+        _id: { $in: weeklyWonDealIds },
+        ...visibilityFilter,
       });
 
       wonPerWeek.push({

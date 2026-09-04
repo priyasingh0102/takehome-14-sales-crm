@@ -1,3 +1,4 @@
+import API_URL from "../api";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -26,7 +27,7 @@ function Dashboard() {
         setError("");
 
         const response = await fetch(
-          "http://localhost:5000/api/dashboard",
+          `${API_URL}/api/dashboard`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,

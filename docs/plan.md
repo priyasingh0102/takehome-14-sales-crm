@@ -69,3 +69,48 @@ Answer each of these, in your own words.
   - Bulk reassignment
   - Bulk stage advancement
 - Added role-based frontend controls for manager-specific actions.
+- Added server-side sorting and pagination controls to the Deals page.
+- Added deal owner and company filters to the Deals page.
+- Added deal notes functionality and displayed notes in the deal history.
+- Added overdue alert count to the navigation.
+- Redesigned the frontend using Material UI to provide a cleaner and more consistent CRM interface.
+- Removed the default Vite branding and updated the application title to "Sales CRM".
+- The frontend work took longer than initially expected because the UI had to be integrated with the completed backend APIs and several interactions had to be adjusted during verification.
+
+## Final Verification
+
+- Verified manager login and sales representative login.
+- Verified company creation, editing, archiving, and restoring.
+- Verified deal creation, editing, deletion, and stage transitions.
+- Verified closed deal protection and manager reopening.
+- Verified deal reassignment and collaborator management.
+- Verified deal notes and immutable history.
+- Verified overdue alerts and alert dismissal.
+- Verified CSV export.
+- Verified bulk stage advancement and bulk reassignment.
+- Verified the dashboard and its main CRM metrics.
+- Verified the frontend pages after the UI redesign.
+
+## What I Estimated vs What Actually Took
+
+The initial estimate was to complete the backend foundation and core CRM functionality first, followed by the frontend and final verification.
+
+The backend implementation took approximately the planned sessions, but some features required additional time because of their interactions with authorization and deal lifecycle rules.
+
+The frontend and final integration took longer than initially expected because multiple backend features had to be connected to the UI and verified together.
+
+The final stage of the work was focused on integration, bug fixing, verification, UI improvements, and documentation rather than adding unnecessary features.
+
+## What I Cut When I Ran Short
+
+I prioritized the required assignment functionality and did not add optional features that were outside the core requirements.
+
+Features not built included:
+
+- Real-time WebSocket updates
+- Email/SMS notifications
+- Mobile application
+- Advanced analytics beyond the required dashboard
+- External CRM integrations
+
+This allowed the available time to be focused on completing and verifying the required CRM functionality.

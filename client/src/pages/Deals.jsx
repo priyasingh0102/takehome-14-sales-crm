@@ -1,25 +1,7 @@
+import API_URL from "../api";
 import { useEffect, useState } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
-  Alert,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Checkbox,
-  FormControlLabel,
-  Divider,
-  InputAdornment,
-  Stack,
+  Box, Paper, Typography, TextField, Button, Grid, Card, CardContent, CardActions, Chip, Alert,MenuItem, FormControl, InputLabel, Select, Checkbox, FormControlLabel, Divider, InputAdornment, Stack,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -31,6 +13,7 @@ import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import HistoryIcon from "@mui/icons-material/History";
 import RestoreIcon from "@mui/icons-material/Restore";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import PersonIcon from "@mui/icons-material/Person";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 function Deals() {
@@ -39,7 +22,15 @@ function Deals() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
   const [page, setPage] = useState(1);
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
+  const [companies, setCompanies] = useState([]);
+  const [salesReps, setSalesReps] = useState([]);
   const [selectedDeals, setSelectedDeals] = useState([]);
 
   const [user] = useState(() => {
@@ -71,9 +62,9 @@ function Deals() {
         const token = localStorage.getItem("token");
 
         const response = await fetch(
-          `http://localhost:5000/api/deals?search=${encodeURIComponent(
+          `${API_URL}/api/deals?search=${encodeURIComponent(
             search
-          )}&stage=${stage}&page=${page}`,
+          )}&stage=${stage}&company=${companyFilter}&owner=${ownerFilter}&sortBy=${sortBy}&sortOrder=${sortOrder}&page=${page}&limit=6`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -89,19 +80,63 @@ function Deals() {
         }
 
         setDeals(data.deals || []);
+        setTotal(data.pagination?.total || 0);
+        setTotalPages(data.pagination?.totalPages || 1);
         setSelectedDeals([]);
+
       } catch (error) {
         setError("Unable to connect to server");
       }
     };
 
     fetchDeals();
-  }, [search, stage, page]);
+  }, [search, stage, page, companyFilter, ownerFilter, sortBy, sortOrder]);
+
+  // Fetch companies and sales reps for filters
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const [companiesResponse, usersResponse] = await Promise.all([
+          fetch(`${API_URL}/api/companies`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          fetch(`${API_URL}/api/users`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
+
+        const companiesData = await companiesResponse.json();
+        const usersData = await usersResponse.json();
+
+        if (companiesResponse.ok) {
+          setCompanies(companiesData.companies || []);
+        }
+
+        if (usersResponse.ok) {
+          setSalesReps(
+            (usersData.users || []).filter(
+              (user) => user.role === "sales_rep"
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load filter data");
+      }
+    };
+
+    fetchFilterData();
+  }, []);
 
   // Reset page when search or stage filter changes
   useEffect(() => {
     setPage(1);
-  }, [search, stage]);
+  }, [search, stage, companyFilter, ownerFilter, sortBy, sortOrder]);
 
   // Create Deal
   const handleCreateDeal = async (e) => {
@@ -110,7 +145,7 @@ function Deals() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/deals",
+        `${API_URL}/api/deals`,
         {
           method: "POST",
           headers: {
@@ -134,13 +169,14 @@ function Deals() {
         return;
       }
 
-      setDeals((prev) => [data.deal, ...prev]);
-
       setTitle("");
       setCompany("");
       setValue("");
       setExpectedCloseDate("");
       setDealStage("New");
+
+      setPage(1);
+
     } catch (error) {
       setError("Unable to connect to server");
     }
@@ -153,13 +189,37 @@ function Deals() {
       deal.title
     );
 
-    if (!newTitle || newTitle === deal.title) {
+    if (!newTitle) {
+      return;
+    }
+
+    const newValue = prompt(
+      "Enter new deal value:",
+      deal.value?.$numberDecimal || deal.value || ""
+    );
+
+    if (!newValue) {
+      return;
+    }
+
+    const newDate = prompt(
+      "Enter expected close date (YYYY-MM-DD):",
+      deal.expectedCloseDate
+        ? new Date(deal.expectedCloseDate)
+            .toISOString()
+            .split("T")[0]
+        : ""
+    );
+
+    if (!newDate) {
       return;
     }
 
     try {
+      setError("");
+
       const response = await fetch(
-        `http://localhost:5000/api/deals/${deal._id}`,
+        `${API_URL}/api/deals/${deal._id}`,
         {
           method: "PUT",
           headers: {
@@ -168,6 +228,8 @@ function Deals() {
           },
           body: JSON.stringify({
             title: newTitle,
+            value: newValue,
+            expectedCloseDate: newDate,
           }),
         }
       );
@@ -201,7 +263,7 @@ function Deals() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}`,
+        `${API_URL}/api/deals/${dealId}`,
         {
           method: "DELETE",
           headers: {
@@ -263,7 +325,7 @@ function Deals() {
       setError("");
 
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/stage`,
+        `${API_URL}/api/deals/${dealId}/stage`,
         {
           method: "PATCH",
           headers: {
@@ -304,7 +366,7 @@ function Deals() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/collaborators`,
+        `${API_URL}/api/deals/${dealId}/collaborators`,
         {
           method: "POST",
           headers: {
@@ -334,7 +396,7 @@ function Deals() {
   const handleViewCollaborators = async (dealId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/collaborators`,
+        `${API_URL}/api/deals/${dealId}/collaborators`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -373,7 +435,7 @@ function Deals() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/collaborators/${userId}`,
+        `${API_URL}/api/deals/${dealId}/collaborators/${userId}`,
         {
           method: "DELETE",
           headers: {
@@ -397,13 +459,51 @@ function Deals() {
     }
   };
 
+  // Add Deal Note
+  const handleAddNote = async (dealId) => {
+    const note = prompt("Enter a note for this deal:");
+
+    if (!note) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/api/deals/${dealId}/notes`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            note,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Failed to add note");
+        return;
+      }
+
+      alert("Note added successfully");
+    } catch (error) {
+      setError("Unable to connect to server");
+    }
+  };
+
   // View History
   const handleViewHistory = async (dealId) => {
     try {
       setError("");
 
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/history`,
+        `${API_URL}/api/deals/${dealId}/history`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -457,7 +557,7 @@ Performed By: ${performedBy}`;
   const handleExportCsv = async () => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/deals/export/csv",
+        `${API_URL}/api/deals/export/csv`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -489,6 +589,50 @@ Performed By: ${performedBy}`;
     }
   };
 
+  // Reassign Deal Owner
+  const handleReassignDeal = async (dealId) => {
+    const newOwnerId = prompt(
+      "Enter the User ID of the new deal owner:"
+    );
+
+    if (!newOwnerId) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/api/deals/${dealId}/reassign`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            newOwnerId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Failed to reassign deal");
+        return;
+      }
+
+      setDeals((prev) =>
+        prev.map((deal) =>
+          deal._id === dealId ? data.deal : deal
+        )
+      );
+    } catch (error) {
+      setError("Unable to connect to server");
+    }
+  };
+
   // Reopen Deal
   const handleReopenDeal = async (dealId) => {
     const newStage = prompt(
@@ -503,7 +647,7 @@ Performed By: ${performedBy}`;
       setError("");
 
       const response = await fetch(
-        `http://localhost:5000/api/deals/${dealId}/reopen`,
+        `${API_URL}/api/deals/${dealId}/reopen`,
         {
           method: "PATCH",
           headers: {
@@ -591,7 +735,7 @@ Performed By: ${performedBy}`;
       setError("");
 
       const response = await fetch(
-        "http://localhost:5000/api/deals/bulk/reassign",
+        `${API_URL}/api/deals/bulk/reassign`,
         {
           method: "PATCH",
           headers: {
@@ -632,9 +776,9 @@ Performed By: ${performedBy}`;
       setSelectedDeals([]);
 
       const refreshResponse = await fetch(
-        `http://localhost:5000/api/deals?search=${encodeURIComponent(
+        `${API_URL}/api/deals?search=${encodeURIComponent(
           search
-        )}&stage=${stage}&page=${page}`,
+        )}&stage=${stage}&company=${companyFilter}&owner=${ownerFilter}&sortBy=${sortBy}&sortOrder=${sortOrder}&page=${page}&limit=6`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -647,6 +791,8 @@ Performed By: ${performedBy}`;
 
       if (refreshResponse.ok) {
         setDeals(refreshData.deals || []);
+        setTotal(refreshData.pagination?.total || 0);
+        setTotalPages(refreshData.pagination?.totalPages || 1);
       }
     } catch (error) {
       setError("Unable to connect to server");
@@ -664,7 +810,7 @@ Performed By: ${performedBy}`;
       setError("");
 
       const response = await fetch(
-        "http://localhost:5000/api/deals/bulk/advance",
+        `${API_URL}/api/deals/bulk/advance`,
         {
           method: "PATCH",
           headers: {
@@ -704,9 +850,9 @@ Performed By: ${performedBy}`;
       setSelectedDeals([]);
 
       const refreshResponse = await fetch(
-        `http://localhost:5000/api/deals?search=${encodeURIComponent(
+        `${API_URL}/api/deals?search=${encodeURIComponent(
           search
-        )}&stage=${stage}&page=${page}`,
+        )}&stage=${stage}&company=${companyFilter}&owner=${ownerFilter}&sortBy=${sortBy}&sortOrder=${sortOrder}&page=${page}&limit=6`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -719,6 +865,8 @@ Performed By: ${performedBy}`;
 
       if (refreshResponse.ok) {
         setDeals(refreshData.deals || []);
+        setTotal(refreshData.pagination?.total || 0);
+        setTotalPages(refreshData.pagination?.totalPages || 1);
       }
     } catch (error) {
       setError("Unable to connect to server");
@@ -891,15 +1039,29 @@ Performed By: ${performedBy}`;
             </Grid>
 
             <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                fullWidth
-                label="Company ID"
-                value={company}
-                onChange={(e) =>
-                  setCompany(e.target.value)
-                }
-                required
-              />
+              <FormControl fullWidth>
+                <InputLabel>Company</InputLabel>
+
+                <Select
+                  value={company}
+                  label="Company"
+                  onChange={(e) => setCompany(e.target.value)}
+                  required
+                >
+                  <MenuItem value="">
+                    Select Company
+                  </MenuItem>
+
+                  {companies.map((companyItem) => (
+                    <MenuItem
+                      key={companyItem._id}
+                      value={companyItem._id}
+                    >
+                      {companyItem.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
             <Grid size={{ xs: 12, md: 4 }}>
@@ -1063,6 +1225,80 @@ Performed By: ${performedBy}`;
               </Select>
             </FormControl>
           </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter by Company</InputLabel>
+
+              <Select
+                value={companyFilter}
+                label="Filter by Company"
+                onChange={(e) => setCompanyFilter(e.target.value)}
+              >
+                <MenuItem value="">All Companies</MenuItem>
+
+                {companies.map((companyItem) => (
+                  <MenuItem
+                    key={companyItem._id}
+                    value={companyItem._id}
+                  >
+                    {companyItem.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter by Owner</InputLabel>
+
+              <Select
+                value={ownerFilter}
+                label="Filter by Owner"
+                onChange={(e) => setOwnerFilter(e.target.value)}
+              >
+                <MenuItem value="">All Owners</MenuItem>
+
+                {salesReps.map((rep) => (
+                  <MenuItem key={rep._id} value={rep._id}>
+                    {rep.name || rep.email}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Sort By</InputLabel>
+
+              <Select
+                value={sortBy}
+                label="Sort By"
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="">Newest</MenuItem>
+                <MenuItem value="value">Deal Value</MenuItem>
+                <MenuItem value="expectedCloseDate">
+                  Expected Close Date
+                </MenuItem>
+                <MenuItem value="updatedAt">Last Updated</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Order</InputLabel>
+
+              <Select
+                value={sortOrder}
+                label="Order"
+                onChange={(e) => setSortOrder(e.target.value)}
+              >
+                <MenuItem value="desc">Descending</MenuItem>
+                <MenuItem value="asc">Ascending</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
         </Grid>
       </Paper>
 
@@ -1090,12 +1326,18 @@ Performed By: ${performedBy}`;
       )}
 
       {/* Deal List */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center",}}>
         <Typography
           variant="h6"
           fontWeight="bold"
         >
           Deal List
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+        >
+          {total} total deals
         </Typography>
       </Box>
 
@@ -1209,6 +1451,7 @@ Performed By: ${performedBy}`;
                     fullWidth
                     size="small"
                     sx={{ mt: 3 }}
+                    disabled={deal.stage === "Won" || deal.stage === "Lost"}
                   >
                     <InputLabel>
                       Deal Stage
@@ -1269,6 +1512,17 @@ Performed By: ${performedBy}`;
                   >
                     Edit
                   </Button>
+
+                  {user?.role === "sales_manager" && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<SwapHorizIcon />}
+                      onClick={() => handleReassignDeal(deal._id)}
+                    >
+                      Reassign Owner
+                    </Button>
+                  )}
 
                   <Button
                     size="small"
@@ -1355,6 +1609,18 @@ Performed By: ${performedBy}`;
                   >
                     History
                   </Button>
+
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() =>
+                      handleAddNote(deal._id)
+                    }
+                  >
+                    Add Note
+                  </Button>
+
+
                 </CardActions>
               </Card>
             </Grid>
@@ -1363,48 +1629,55 @@ Performed By: ${performedBy}`;
       )}
 
       {/* Pagination */}
-      <Paper
-        elevation={1}
-        sx={{
-          mt: 4,
-          p: 2,
-          borderRadius: 3,
-        }}
-      >
-        <Box
+      {totalPages > 1 && (
+        <Paper
+          elevation={1}
           sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 2,
+            mt: 4,
+            p: 2,
+            borderRadius: 3,
           }}
         >
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setPage((prev) =>
-                Math.max(prev - 1, 1)
-              )
-            }
-            disabled={page === 1}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 2,
+            }}
           >
-            Previous
-          </Button>
+            <Button
+              variant="outlined"
+              onClick={() =>
+                setPage((prev) =>
+                  Math.max(prev - 1, 1)
+                )
+              }
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
 
-          <Typography fontWeight="500">
-            Page {page}
-          </Typography>
+            <Typography fontWeight="500">
+              Page {page} of {totalPages}
+            </Typography>
 
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setPage((prev) => prev + 1)
-            }
-          >
-            Next
-          </Button>
-        </Box>
-      </Paper>
+            <Typography variant="body2" color="text.secondary">
+              Showing {deals.length} of {total} deals
+            </Typography>
+
+            <Button
+              variant="outlined"
+              onClick={() =>
+                setPage((prev) => prev + 1)
+              }
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </Box>
+        </Paper>
+      )}
     </Box>
   );
 }

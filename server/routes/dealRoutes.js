@@ -1,5 +1,5 @@
 import express from "express";
-import { addCollaborator, bulkAdvanceDeals, bulkReassignDeals, createDeal, deleteDeal, exportDealsCsv, getCollaborators, getDealHistory, getDeals, reassignDeal, removeCollaborator, reopenDeal, updateDeal, updateDealStage } from "../controllers/dealController.js";
+import { addCollaborator, addDealNote, bulkAdvanceDeals, bulkReassignDeals, createDeal, deleteDeal, exportDealsCsv, getCollaborators, getDealHistory, getDeals, reassignDeal, removeCollaborator, reopenDeal, updateDeal, updateDealStage } from "../controllers/dealController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -15,6 +15,7 @@ router.patch("/:id/reopen", authMiddleware, reopenDeal);
 router.patch("/:id/reassign", authMiddleware, reassignDeal);
 router.delete("/:id", authMiddleware, deleteDeal);
 router.get("/:id/history", authMiddleware, getDealHistory);
+router.post("/:id/notes", authMiddleware, addDealNote);
 router.post("/:id/collaborators", authMiddleware, addCollaborator);
 router.delete("/:id/collaborators/:userId", authMiddleware, removeCollaborator);
 router.get("/:id/collaborators", authMiddleware, getCollaborators);

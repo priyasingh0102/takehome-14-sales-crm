@@ -7,7 +7,7 @@ import companyRoutes from "./routes/companyRoutes.js";
 import dealRoutes from "./routes/dealRoutes.js";
 import dealAlertRoutes from "./routes/dealAlertRoutes.js";
 import dashboardRouter from "./routes/dashboardRoutes.js";
-
+import userRoutes from "./routes/userRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +19,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/deal-alerts", dealAlertRoutes);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/users", userRoutes);
 
 app.get("/", (req, res) => {
   res.json({

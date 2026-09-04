@@ -1,3 +1,4 @@
+import API_URL from "../api";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -22,7 +23,7 @@ function Alerts() {
       setError("");
 
       const response = await fetch(
-        "http://localhost:5000/api/deal-alerts",
+        `${API_URL}/api/deal-alerts`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -50,7 +51,7 @@ function Alerts() {
   const handleDismiss = async (alertId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/deal-alerts/${alertId}/dismiss`,
+        `${API_URL}/api/deal-alerts/${alertId}/dismiss`,
         {
           method: "PATCH",
           headers: {

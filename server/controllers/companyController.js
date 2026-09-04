@@ -1,20 +1,48 @@
 import Company from "../models/Company.js";
+import User from "../models/User.js";
 
 export const createCompany = async (req, res) => {
   try {
-    const { name, industry, website } = req.body;
+    const { name, industry, website, ownerId } = req.body;
 
     if (!name || !industry) {
       return res.status(400).json({
         message: "Name and industry are required",
       });
     }
+    let owner;
+
+    if (req.user.role === "sales_manager") {
+      if (!ownerId) {
+        return res.status(400).json({
+          message: "A sales representative must be selected as company owner",
+        });
+      }
+
+      const ownerUser = await User.findById(ownerId);
+
+      if (!ownerUser) {
+        return res.status(404).json({
+          message: "Specified owning sales rep not found",
+        });
+      }
+
+      if (ownerUser.role !== "sales_rep") {
+        return res.status(400).json({
+          message: "Company owner must be a sales representative",
+        });
+      }
+
+      owner = ownerId;
+    } else {
+      owner = req.user._id;
+    }
 
     const company = await Company.create({
       name,
       industry,
       website,
-      owner: req.user._id,
+      owner,
     });
 
     res.status(201).json({
@@ -28,6 +56,7 @@ export const createCompany = async (req, res) => {
     });
   }
 };
+
 
 export const getCompanies = async (req, res) => {
   try {

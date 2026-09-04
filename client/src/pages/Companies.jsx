@@ -1,17 +1,7 @@
+import API_URL from "../api";
 import { useEffect, useState } from "react";
 import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
-  Alert,
-  InputAdornment,
+  Box, Paper, Typography, TextField, Button, Grid, Card, CardContent, CardActions, Chip, Alert, FormControl, InputLabel, Select, MenuItem, InputAdornment,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -30,6 +20,8 @@ function Companies() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [salesReps, setSalesReps] = useState([]);
+  const [ownerId, setOwnerId] = useState("");
 
   const fetchCompanies = async () => {
     try {
@@ -38,7 +30,7 @@ function Companies() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `http://localhost:5000/api/companies?search=${encodeURIComponent(
+        `${API_URL}/api/companies?search=${encodeURIComponent(
           search
         )}&archived=${showArchived}`,
         {
@@ -65,6 +57,34 @@ function Companies() {
     fetchCompanies();
   }, [search, showArchived]);
 
+  useEffect(() => {
+    const fetchSalesReps = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const response = await fetch(`${API_URL}/api/users`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setSalesReps(
+            (data.users || []).filter(
+              (user) => user.role === "sales_rep"
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch sales reps:", error);
+      }
+    };
+
+    fetchSalesReps();
+  }, []);
+
   const handleCreateCompany = async (e) => {
     e.preventDefault();
 
@@ -75,7 +95,7 @@ function Companies() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        "http://localhost:5000/api/companies",
+        `${API_URL}/api/companies`,
         {
           method: "POST",
           headers: {
@@ -86,6 +106,7 @@ function Companies() {
             name,
             industry,
             website,
+            ...(ownerId ? { ownerId } : {}),
           }),
         }
       );
@@ -98,6 +119,7 @@ function Companies() {
       }
 
       setMessage("Company created successfully");
+      setOwnerId("");
 
       setName("");
       setIndustry("");
@@ -123,7 +145,7 @@ function Companies() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `http://localhost:5000/api/companies/${company._id}`,
+        `${API_URL}/api/companies/${company._id}`,
         {
           method: "PUT",
           headers: {
@@ -160,7 +182,7 @@ function Companies() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `http://localhost:5000/api/companies/${company._id}/archive`,
+        `${API_URL}/api/companies/${company._id}/archive`,
         {
           method: "PATCH",
           headers: {
@@ -191,7 +213,7 @@ function Companies() {
       const token = localStorage.getItem("token");
 
       const response = await fetch(
-        `http://localhost:5000/api/companies/${company._id}/restore`,
+        `${API_URL}/api/companies/${company._id}/restore`,
         {
           method: "PATCH",
           headers: {
@@ -377,6 +399,47 @@ function Companies() {
                   }
                   placeholder="https://example.com"
                 />
+              </Grid>
+              {JSON.parse(localStorage.getItem("user") || "null")?.role === "sales_manager" && (
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Company Owner</InputLabel>
+                    <Select
+                      value={ownerId}
+                      label="Company Owner"
+                      onChange={(e) => setOwnerId(e.target.value)}
+                    >
+                      {salesReps.map((rep) => (
+                        <MenuItem key={rep._id} value={rep._id}>
+                          {rep.name} ({rep.email})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              <Grid size={{ xs: 12, md: 4 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Owner</InputLabel>
+
+                  <Select
+                    value={ownerId}
+                    label="Owner"
+                    onChange={(e) => setOwnerId(e.target.value)}
+                    required
+                  >
+                    <MenuItem value="">
+                      Select Sales Rep
+                    </MenuItem>
+
+                    {salesReps.map((rep) => (
+                      <MenuItem key={rep._id} value={rep._id}>
+                        {rep.name || rep.email}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
 
               <Grid size={{ xs: 12 }}>

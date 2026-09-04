@@ -1,8 +1,58 @@
 import DealAlert from "../models/DealAlert.js";
 import Deal from "../models/Deal.js";
 
+const syncDealAlerts = async () => {
+  const now = new Date();
+
+  // Find all currently overdue open deals
+  const overdueOpenDeals = await Deal.find({
+    expectedCloseDate: { $lt: now },
+    stage: { $nin: ["Won", "Lost"] },
+  });
+
+  // Create an alert if one does not already exist
+  // for this exact expected close date.
+  for (const deal of overdueOpenDeals) {
+    const existingAlert = await DealAlert.findOne({
+      deal: deal._id,
+      closeDate: deal.expectedCloseDate,
+    });
+
+    if (!existingAlert) {
+      await DealAlert.create({
+        deal: deal._id,
+        owner: deal.owner,
+        closeDate: deal.expectedCloseDate,
+      });
+    }
+  }
+
+  // Remove alerts that no longer apply
+  const activeAlerts = await DealAlert.find({
+    dismissed: false,
+  }).populate("deal", "stage expectedCloseDate");
+
+  for (const alert of activeAlerts) {
+    const deal = alert.deal;
+
+    const stillApplies =
+      deal &&
+      !["Won", "Lost"].includes(deal.stage) &&
+      deal.expectedCloseDate.getTime() < now.getTime() &&
+      deal.expectedCloseDate.getTime() === alert.closeDate.getTime();
+
+    if (!stillApplies) {
+      await DealAlert.deleteOne({
+        _id: alert._id,
+      });
+    }
+  }
+};
+
 export const getDealAlerts = async (req, res) => {
   try {
+    await syncDealAlerts();
+    
     const alerts = await DealAlert.find({
       owner: req.user._id,
       dismissed: false,
@@ -61,18 +111,9 @@ export const generateDealAlerts = async (req, res) => {
   try {
     const now = new Date();
 
-    // Deals closing within the next 3 days
-    const alertDate = new Date();
-    alertDate.setDate(alertDate.getDate() + 3);
-
     const deals = await Deal.find({
-      expectedCloseDate: {
-        $gte: now,
-        $lte: alertDate,
-      },
-      stage: {
-        $nin: ["Won", "Lost"],
-      },
+      expectedCloseDate: { $lt: now },
+      stage: { $nin: ["Won", "Lost"] },
     });
 
     let createdAlerts = 0;
@@ -80,7 +121,7 @@ export const generateDealAlerts = async (req, res) => {
     for (const deal of deals) {
       const existingAlert = await DealAlert.findOne({
         deal: deal._id,
-        dismissed: false,
+        closeDate: deal.expectedCloseDate,
       });
 
       if (!existingAlert) {

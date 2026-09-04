@@ -1,9 +1,10 @@
-import { useState } from "react";
+import API_URL from "./api.js";
+import { useState, useEffect  } from "react";
 import {
   BrowserRouter, Routes, Route, Navigate, Link,
 } from "react-router-dom";
 import {
-  Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography, Box, Divider, Button,
+  Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography, Box, Divider, Button, Badge
 } from "@mui/material";
 
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -21,17 +22,58 @@ import Alerts from "./pages/Alerts";
 import "./App.css";
 
 function App() {
+  const [alertCount, setAlertCount] = useState(0);
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem("token");
-    return token ? { loggedIn: true } : null;
+    const storedUser = localStorage.getItem("user");
+
+    if (!token) {
+      return null;
+    }
+
+    return storedUser ? JSON.parse(storedUser) : { loggedIn: true };
   });
 
+  useEffect(() => {
+    if (!user) {
+      setAlertCount(0);
+      return;
+    }
+
+    const fetchAlertCount = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const response = await fetch(`${API_URL}/api/deal-alerts`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setAlertCount(data.alerts?.length || 0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch alert count:", error);
+      }
+    };
+
+    fetchAlertCount();
+
+    const interval = setInterval(fetchAlertCount, 60000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   const handleLogin = (data) => {
-    setUser(data);
+    setUser(data.user);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
   };
 
@@ -84,7 +126,9 @@ function App() {
 
             <ListItemButton component={Link} to="/alerts">
               <ListItemIcon>
-                <NotificationsIcon />
+                <Badge badgeContent={alertCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
               </ListItemIcon>
 
               <ListItemText primary="Alerts" />
