@@ -4,9 +4,8 @@ Fill this in and commit it. This is the first file we open.
 
 ## Links
 
-- **GitHub repository:** <public repo URL>
-- **Live application:** <deployed URL>
-
+- **GitHub repository:** https://github.com/priyasingh0102/takehome-14-sales-crm
+- **Live application:**  https://takehome-14-sales-crm.vercel.app/
 ## Notes for the reviewer
 
 <Anything we should know before opening the link — e.g. your host sleeps when idle and the first
